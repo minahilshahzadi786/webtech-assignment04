@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Slide Presentation Web App</title>
+  <!-- Marked.js library to parse Markdown into HTML -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-color: #f4f5f7;
+      color: #333;
+    }
+
+    /* Top Navigation Header */
+    header {
+      background-color: #1e293b;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #334155;
+    }
+
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #2563eb;
+    }
+
+    button:disabled {
+      background-color: #94a3b8;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    /* Split Screen Editor View */
+    .editor-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 57px);
+      overflow: hidden;
+    }
+
+    .editor-pane, .preview-pane {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #e2e8f0;
+      background: #ffffff;
+    }
+
+    .pane-header {
+      background-color: #f8fafc;
+      padding: 10px 16px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      outline: none;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      resize: none;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    /* Slide Viewer Container */
+    .slide-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px;
+      position: relative;
+      background-color: #ffffff;
+      overflow-y: auto;
+    }
+
+    .slide-content {
+      width: 100%;
+      max-width: 800px;
+      margin: auto 0;
+      line-height: 1.8;
+      font-size: 1.1rem;
+    }
+
+    /* Markdown Styling Inside Slide */
+    .slide-content h1 {
+      font-size: 2.2rem;
+      margin-bottom: 16px;
+      color: #0f172a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+    }
+
+    .slide-content h2 {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+      color: #1e293b;
+    }
+
+    .slide-content p {
+      margin-bottom: 12px;
+    }
+
+    .slide-content ul, .slide-content ol {
+      margin-left: 24px;
+      margin-bottom: 12px;
+    }
+
+    .slide-content code {
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    /* Navigation & Counter Bar */
+    .controls-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 16px;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .slide-counter {
+      font-weight: 600;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+
+    /* Full Screen Mode Presentation Override */
+    body.presentation-mode {
+      background-color: #000000;
+    }
+
+    body.presentation-mode header,
+    body.presentation-mode .editor-pane,
+    body.presentation-mode .pane-header {
+      display: none !important;
+    }
+
+    body.presentation-mode .editor-container {
+      height: 100vh;
+    }
+
+    body.presentation-mode .preview-pane {
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+
+    body.presentation-mode .slide-wrapper {
+      background-color: #0f172a;
+    }
+
+    body.presentation-mode .slide-content h1 {
+      color: #ffffff;
+      border-bottom-color: #334155;
+    }
+
+    body.presentation-mode .slide-content h2 {
+      color: #cbd5e1;
+    }
+
+    body.presentation-mode .slide-counter {
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Section -->
+  <header>
+    <h1>Markdown Slide Presenter</h1>
+    <div class="header-controls">
+      <button id="saveBtn">Save (Ctrl+S)</button>
+      <button id="presentBtn">Present Slides</button>
+    </div>
+  </header>
+
+  <!-- Main Split Editor Section -->
+  <div class="editor-container">
+    <!-- Editor Left Pane -->
+    <div class="editor-pane">
+      <div class="pane-header">Markdown Editor</div>
+      <textarea id="mdInput" placeholder="Type markdown here... Use '---' to separate slides."></textarea>
+    </div>
+
+    <!-- Preview Right Pane -->
+    <div class="preview-pane">
+      <div class="pane-header">Slide Preview</div>
+      <div class="slide-wrapper">
+        <div id="slideContent" class="slide-content"></div>
+        <div class="controls-bar">
+          <div class="nav-buttons">
+            <button id="prevBtn">Left</button>
+            <button id="nextBtn">Right</button>
+            <button id="fullScreenBtn">Full Screen</button>
+          </div>
+          <div id="slideCounter" class="slide-counter">0 / 0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initial Default Content
+    const defaultMarkdown = `# This is Slide 01\n## This is Heading 02 in slide 01\n\nThis is your content on slide 01\n---\n# This is Slide 02\n## This is Heading 02 in slide 02\n\nThis is your content on slide 02\n---\n# Welcome to Slide 03\n- Bullet point 1\n- Bullet point 2\n\nEnjoy presenting your slides!`;
+
+    // State Variables
+    let slides = [];
+    let currentSlideIndex = 0;
+
+    // DOM Elements
+    const mdInput = document.getElementById('mdInput');
+    const slideContent = document.getElementById('slideContent');
+    const slideCounter = document.getElementById('slideCounter');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const fullScreenBtn = document.getElementById('fullScreenBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const presentBtn = document.getElementById('presentBtn');
+
+    // 1. Storage Operations (Save & Load internal memory via localStorage)
+    function saveToStorage() {
+      localStorage.setItem('savedSlidesMarkdown', mdInput.value);
+      alert('Slides saved successfully to browser internal memory!');
+    }
+
+    function loadFromStorage() {
+      const savedData = localStorage.getItem('savedSlidesMarkdown');
+      if (savedData !== null) {
+        mdInput.value = savedData;
+      } else {
+        mdInput.value = defaultMarkdown;
+      }
+      parseMarkdown();
+    }
+
+    // 2. Parse Markdown string into slide array using '---'
+    function parseMarkdown() {
+      const rawText = mdInput.value;
+      // Split by '---' line break delimiter
+      slides = rawText.split(/^---$/gm).map(s => s.trim());
+      
+      if (slides.length === 0 || (slides.length === 1 && slides[0] === '')) {
+        slides = [''];
+      }
+
+      // Adjust current slide index if out of bounds
+      if (currentSlideIndex >= slides.length) {
+        currentSlideIndex = slides.length - 1;
+      }
+      
+      renderSlide();
+    }
+
+    // 3. Render current slide content and update navigation state
+    function renderSlide() {
+      if (slides.length === 0) return;
+
+      // Convert Markdown to HTML
+      const currentMd = slides[currentSlideIndex] || '';
+      slideContent.innerHTML = marked.parse(currentMd);
+
+      // Update counter: {current slide number} / {total number of slides}
+      slideCounter.textContent = `${currentSlideIndex + 1} / ${slides.length}`;
+
+      // Handle disabled states
+      prevBtn.disabled = (currentSlideIndex === 0);
+      nextBtn.disabled = (currentSlideIndex === slides.length - 1);
+    }
+
+    // 4. Navigation Actions
+    function nextSlide() {
+      if (currentSlideIndex < slides.length - 1) {
+        currentSlideIndex++;
+        renderSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlideIndex > 0) {
+        currentSlideIndex--;
+        renderSlide();
+      }
+    }
+
+    // 5. Full Screen & Presentation Toggle Logic
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    function updateFullScreenButtonText() {
+      const isFull = !!document.fullscreenElement;
+      if (isFull) {
+        fullScreenBtn.textContent = 'Exit Full Screen';
+        document.body.classList.add('presentation-mode');
+      } else {
+        fullScreenBtn.textContent = 'Full Screen';
+        document.body.classList.remove('presentation-mode');
+      }
+    }
+
+    // 6. Event Listeners
+    mdInput.addEventListener('input', parseMarkdown);
+    prevBtn.addEventListener('click', prevSlide);
+    nextBtn.addEventListener('click', nextSlide);
+    fullScreenBtn.addEventListener('click', toggleFullScreen);
+    saveBtn.addEventListener('click', saveToStorage);
+
+    presentBtn.addEventListener('click', () => {
+      toggleFullScreen();
+    });
+
+    // Handle full screen state changes via Browser API or F11
+    document.addEventListener('fullscreenchange', updateFullScreenButtonText);
+
+    // Keyboard Shortcuts (Arrow keys, F11, Ctrl+S)
+    document.addEventListener('keydown', (e) => {
+      // Save Shortcut: Ctrl + S
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault(); // Intercept browser default save dialog
+        saveToStorage();
+        return;
+      }
+
+      // Left Arrow key
+      if (e.key === 'ArrowLeft') {
+        prevSlide();
+      } 
+      // Right Arrow key
+      else if (e.key === 'ArrowRight') {
+        nextSlide();
+      }
+      // F11 Full Screen Key
+      else if (e.key === 'F11') {
+        e.preventDefault();
+        toggleFullScreen();
+      }
+    });
+
+    // Initial Load On Page Startup
+    loadFromStorage();
+  </script>
+</body>
+</html>
